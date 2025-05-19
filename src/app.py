@@ -24,7 +24,7 @@ user_name = None
 
 blueprint = make_azure_blueprint(
     client_id="5a5ba74f-0259-4318-88fb-2fd94bf0b862",
-    client_secret="LdU8Q~W_e9JQDte4hZXdWTNCHLuL0PhGfSzKCbzk",
+    # client_secret="LdU8Q~W_e9JQDte4hZXdWTNCHLuL0PhGfSzKCbzk",
     tenant="fda0a4a7-3813-444d-808d-54bb327d0367",
     scope=["openid", "email", "profile", "User.Read"],
 )
