@@ -1,6 +1,4 @@
 # Importing necessary libraries
-from werkzeug.middleware.proxy_fix import ProxyFix
-from flask import Flask, redirect, url_for
 from flask_dance.contrib.azure import azure, make_azure_blueprint
 import os
 from PIL import Image
@@ -11,7 +9,10 @@ from dash import Dash, html, Output, Input, dcc
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask import Flask, redirect, url_for, session
 from flask_session import Session
-from flask_dance.contrib.azure import azure, make_azure_blueprint
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Only if running on Local Environment
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -24,7 +25,7 @@ user_name = None
 
 blueprint = make_azure_blueprint(
     client_id="5a5ba74f-0259-4318-88fb-2fd94bf0b862",
-    client_secret="LdU8Q~W_e9JQDte4hZXdWTNCHLuL0PhGfSzKCbzk",
+    client_secret = os.environ.get('azure_client_secret'),
     tenant="fda0a4a7-3813-444d-808d-54bb327d0367",
     scope=["openid", "email", "profile", "User.Read"],
 )

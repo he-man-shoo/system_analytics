@@ -37,30 +37,43 @@ layout = dbc.Container([
     html.Br(),
 
     dbc.Row([
+        dbc.Col([html.H5("Select Date Range",  
+                        className='text-center text-primary-emphasis'),
+                        ], xs=12, sm=12, md=12, lg=6, xl=6, style={'text-align': 'center'}),
+
+        dbc.Col([html.H5("Select Sampling Rate",  
+                        className='text-center text-primary-emphasis'),
+                        ], xs=12, sm=12, md=12, lg=6, xl=6, style={'text-align': 'center'}),
+
+                        ], justify='center', align='center'),
+
+    dbc.Row([
         dbc.Col([
-            dcc.DatePickerRange(
+            html.A(children=dcc.DatePickerRange(
                                 id='date_picker',
                                 start_date='2025-04-20',  # Initial start date
                                 end_date='2025-05-01',    # Initial end date
                                 min_date_allowed='2024-05-01',
-                                max_date_allowed='2025-05-01'
-                                ),
+                                max_date_allowed='2025-05-01', 
+                                style={'text-align': 'center'},), 
+                                style={'text-align': 'center'})
                 ], xs=12, sm=12, md=12, lg=6, xl=6),
         dbc.Col([
             dcc.Dropdown(
                 id='dwn_sample_dropdown', 
                 options=[
                     {'label': '1 min', 'value': '1m'},
-                    {'label': '1 Hr', 'value': '1h'},
-                    {'label': '6 Hr', 'value': '6h'},
+                    {'label': '1 hr', 'value': '1h'},
+                    {'label': '6 hr', 'value': '6h'},
                     {'label': '12 hr', 'value': '12h'},
                     {'label': '24 hr', 'value': '24h'},
                     {'label': '48 hr', 'value': '48h'},
                     {'label': '72 hr', 'value': '72h'},],
-                value = '6h', ),  # Default value),
-                ], xs=12, sm=12, md=12, lg=6, xl=6),
+                value = '6h', 
+                style={'text-align': 'center'}),  # Default value),
+                ], xs=12, sm=12, md=12, lg=2, xl=2),
 
-    ]),
+    ], justify='center', align='center'),
 
     html.Br(),
 
@@ -79,7 +92,7 @@ layout = dbc.Container([
                         ),
                     ], xs=12, sm=12, md=12, lg=12, xl=12),
     ], justify='around', align='center'),
-    
+
     dbc.Row([
         dbc.Col([ 
             dbc.Spinner(dcc.Graph(id = "avail_trend", style = {"height":"80%", "width":"100%"},
