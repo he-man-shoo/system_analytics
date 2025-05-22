@@ -37,10 +37,29 @@ layout = dbc.Container([
     html.Br(),
 
     dbc.Row([
-            html.P("Last 30 days", id='btn_30d', n_clicks=0, className="btn btn-warning m-2"),
-            html.P("Last 60 days", id='btn_60d', n_clicks=0, className="btn btn-warning m-2"),
-            html.P("Last 90 days", id='btn_90d', n_clicks=0, className="btn btn-warning m-2"),
-            html.P("Last 365 days", id='btn_365d', n_clicks=0, className="btn btn-warning m-2"),
+        dbc.Col([
+            dcc.DatePickerRange(
+                                id='date_picker',
+                                start_date='2025-04-20',  # Initial start date
+                                end_date='2025-05-01',    # Initial end date
+                                min_date_allowed='2024-05-01',
+                                max_date_allowed='2025-05-01'
+                                ),
+                ], xs=12, sm=12, md=12, lg=6, xl=6),
+        dbc.Col([
+            dcc.Dropdown(
+                id='dwn_sample_dropdown', 
+                options=[
+                    {'label': '1 min', 'value': '1m'},
+                    {'label': '1 Hr', 'value': '1h'},
+                    {'label': '6 Hr', 'value': '6h'},
+                    {'label': '12 hr', 'value': '12h'},
+                    {'label': '24 hr', 'value': '24h'},
+                    {'label': '48 hr', 'value': '48h'},
+                    {'label': '72 hr', 'value': '72h'},],
+                value = '6h', ),  # Default value),
+                ], xs=12, sm=12, md=12, lg=6, xl=6),
+
     ]),
 
     html.Br(),
@@ -55,52 +74,40 @@ layout = dbc.Container([
 
     dbc.Row([
         dbc.Col([ 
+            dbc.Spinner(dcc.Graph(id = "aux_temp_trend", style = {"height":"80%", "width":"100%"},
+                                    )
+                        ),
+                    ], xs=12, sm=12, md=12, lg=12, xl=12),
+    ], justify='around', align='center'),
+    
+    dbc.Row([
+        dbc.Col([ 
             dbc.Spinner(dcc.Graph(id = "avail_trend", style = {"height":"80%", "width":"100%"},
                                     )
                         ),
                     ], xs=12, sm=12, md=12, lg=12, xl=12),
     ], justify='around', align='center'),
 
-    dbc.Row([
-        dbc.Col([ 
-            dbc.Spinner(dcc.Graph(id = "aux_temp_trend", style = {"height":"80%", "width":"100%"},
-                                    )
-                        ),
-                    ], xs=12, sm=12, md=12, lg=12, xl=12),
-    ], justify='around', align='center'),
 
     html.Br(),
 
 
 
-], fluid=True), 
+], fluid=True),
 
 
 @dash.callback(
     Output('soc_trend', 'figure'),
     Output('avail_trend', 'figure'),
     Output('aux_temp_trend', 'figure'),
-    [Input('btn_30d', 'n_clicks'),
-     Input('btn_60d', 'n_clicks'),
-     Input('btn_90d', 'n_clicks'),
-     Input('btn_365d', 'n_clicks'),]
+    [Input('date_picker', 'start_date'),
+     Input('date_picker', 'end_date'),
+     Input('dwn_sample_dropdown', 'value')]
 )
-def update_plot(btn_30d, btn_60d, btn_90d, btn_365d):
-    ctx = dash.callback_context
+def update_plot(start_date, end_date, sampling_rate):
 
-    if not ctx.triggered:
-        return generate_soc_plot(query_influx("avail soc %, cycle marker", 60, 1)), generate_avail_plot(query_influx("availability %", 60, 1)), temp_aux_plot(query_influx("p_aux (w), Temp (°C), SHGF (W/m²)", 60, 1))
-
-    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-
-    if button_id == 'btn_30d':
-        return generate_soc_plot(query_influx("avail soc %, cycle marker", 30, 1)), generate_avail_plot(query_influx("availability %", 30, 1)), temp_aux_plot(query_influx("p_aux (w), Temp (°C), SHGF (W/m²)", 30, 1))
-    elif button_id == 'btn_60d':
-        return generate_soc_plot(query_influx("avail soc %, cycle marker", 60, 1)), generate_avail_plot(query_influx("availability %", 60, 1)), temp_aux_plot(query_influx("p_aux (w), Temp (°C), SHGF (W/m²)", 60, 1))
-    elif button_id == 'btn_90d':
-        return generate_soc_plot(query_influx("avail soc %, cycle marker", 90, 1)), generate_avail_plot(query_influx("availability %", 90, 1)), temp_aux_plot(query_influx("p_aux (w), Temp (°C), SHGF (W/m²)", 90, 1))
-    elif button_id == 'btn_365d':
-        return generate_soc_plot(query_influx("avail soc %, cycle marker", 365, 1)), generate_avail_plot(query_influx("availability %", 365, 1)), temp_aux_plot(query_influx("p_aux (w), Temp (°C), SHGF (W/m²)", 365, 1))
-    else:
-        raise PreventUpdate
-    
+    return (
+        generate_soc_plot(query_influx("avail soc %, cycle marker", start_date, end_date, sampling_rate)),
+        generate_avail_plot(query_influx("availability %", start_date, end_date, sampling_rate)),
+        temp_aux_plot(query_influx("p_aux (w), Temp (°C), SHGF (W/m²), cycle marker", start_date, end_date, sampling_rate))
+    )

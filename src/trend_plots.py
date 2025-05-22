@@ -14,62 +14,63 @@ prevalon_cream = 'rgb(245,225,164)'
 prevalon_slate = 'rgb(208,211,212)'
 prevalon_gray = 'rgb(99,102,106)'
 
+def add_period_overlay(fig, df, marker, color, name):
+    if 'cycle marker' not in df.columns:
+        return
+    mask = df['cycle marker'] == marker
+    periods = []
+    start = None
+    for i, is_period in enumerate(mask):
+        if is_period and start is None:
+            start = df['_time'].iloc[i]
+        elif not is_period and start is not None:
+            end = df['_time'].iloc[i]
+            periods.append((start, end))
+            start = None
+    if start is not None:
+        periods.append((start, df['_time'].iloc[-1]))
+    for start, end in periods:
+        fig.add_vrect(
+            x0=start, x1=end,
+            fillcolor=color,
+            layer="below", line_width=0,
+        )
+    # Add dummy trace for legend
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None],
+        mode='lines',
+        line=dict(width=10, color=color),
+        name=name
+    ))
+
 def generate_soc_plot(df):
     resting_soc = [df["avail soc %"].mean()] * len(df)
     contract_resting_soc = [50] * len(df)
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(y = df["avail soc %"], x = df['_time'], \
+    fig.add_trace(go.Scatter(y = df["avail soc %"], x = df['_time'],
                             mode = 'lines', name = 'State of Charge', line=dict(color=prevalon_purple)))
-
-    fig.add_trace(go.Scatter(y = resting_soc, x = df['_time'], \
+    fig.add_trace(go.Scatter(y = resting_soc, x = df['_time'],
                             mode = 'lines', name = 'Average Resting SOC', line=dict(color=prevalon_cream)))
-
-    fig.add_trace(go.Scatter(y = contract_resting_soc, x = df['_time'], \
+    fig.add_trace(go.Scatter(y = contract_resting_soc, x = df['_time'],
                             mode = 'lines', name = 'Contractual resting SOC', line=dict(color='rgb(255, 0, 0)')))
 
-    # Highlight "Standby" periods
-    if 'cycle_marker' in df.columns:
-        standby_mask = df['cycle_marker'] == "Standby"
-        standby_periods = []
-        start = None
-        for i, is_standby in enumerate(standby_mask):
-            if is_standby and start is None:
-                start = df['_time'].iloc[i]
-            elif not is_standby and start is not None:
-                end = df['_time'].iloc[i-1]
-                standby_periods.append((start, end))
-                start = None
-        if start is not None:
-            standby_periods.append((start, df['_time'].iloc[-1]))
-        for start, end in standby_periods:
-            fig.add_vrect(
-                x0=start, x1=end,
-                fillcolor="rgba(208,211,212,0.3)",  # prevalon_slate with transparency
-                layer="below", line_width=0,
-                annotation_text="Standby", annotation_position="top left"
-            )
+    add_period_overlay(fig, df, "Charging", "rgba(166,153,193,0.4)", "Charging Period")
+    add_period_overlay(fig, df, "Discharging", "rgba(252,215,87,0.4)", "Discharging Period")
+    add_period_overlay(fig, df, "Standby", "rgba(208,211,212,0.5)", "Standby Period")
 
     fig.update_layout(
-            plot_bgcolor='rgb(255, 255, 255)', # Light grey background 
-            paper_bgcolor='rgb(255, 255, 255)', # Very light grey paper background
-            
-            xaxis=dict(showgrid=True, # Show gridlines 
-                       gridcolor='rgb(200, 200, 200)', # Gridline color 
-                       gridwidth=1, # Gridline width
-                       zeroline=False, # Remove zero line
-                       ),
-            yaxis=dict(title_text = "State of Charge (%)",
-                       title_font=dict(size=14),
-                       title_standoff=10,
-                       ),
-            legend=dict(
-                orientation="h",  # Horizontal legend
-                yanchor="bottom",  # Anchor to the bottom
-                y=-0.2,  # Position below the plot
-                xanchor="center",  # Center the legend
-                x=0.5  # Center horizontally
-            )
+        plot_bgcolor='rgb(255, 255, 255)',
+        paper_bgcolor='rgb(255, 255, 255)',
+        xaxis=dict(showgrid=True, gridcolor='rgb(200, 200, 200)', gridwidth=1, zeroline=False),
+        yaxis=dict(title_text = "State of Charge (%)", title_font=dict(size=14), title_standoff=10),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5
+        )
     )
     return fig
 
@@ -127,6 +128,11 @@ def temp_aux_plot(df):
     
     # fig.add_trace(go.Scatter(y = df['SHGF (W/m²)']*0.001, x = df['_time'], \
     #                         mode = 'lines', name = 'SHGF',  line=dict(color=prevalon_slate), yaxis='y2'))
+    
+    add_period_overlay(fig, df, "Charging", "rgba(166,153,193,0.4)", "Charging Period")
+    add_period_overlay(fig, df, "Discharging", "rgba(252,215,87,0.4)", "Discharging Period")
+    add_period_overlay(fig, df, "Standby", "rgba(208,211,212,0.5)", "Standby Period")
+
 
     fig.update_layout(
             plot_bgcolor='rgb(255, 255, 255)', # Light grey background 
