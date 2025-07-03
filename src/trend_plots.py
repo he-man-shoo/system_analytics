@@ -60,6 +60,7 @@ def generate_soc_plot(df):
     add_period_overlay(fig, df, "Standby", "rgba(208,211,212,0.5)", "Standby Period")
 
     fig.update_layout(
+        title="State of Charge Trend",
         plot_bgcolor='rgb(255, 255, 255)',
         paper_bgcolor='rgb(255, 255, 255)',
         xaxis=dict(showgrid=True, gridcolor='rgb(200, 200, 200)', gridwidth=1, zeroline=False),
@@ -81,7 +82,7 @@ def generate_avail_plot(df):
     contract_avail_percentage = [97] * len(df)
 
     # Site Down Time
-    downtime = round((df[df["availability %"] < 100]['_time'].count())/len(df), 2)
+    downtime = round((df[df["availability %"] < contract_avail_percentage]['_time'].count())/len(df), 2)
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(y = df['availability %'], x = df['_time'], \
@@ -94,6 +95,7 @@ def generate_avail_plot(df):
                             mode = 'lines', name = 'Contractual availability',  line=dict(color='rgb(255, 0, 0)')))
 
     fig.update_layout(
+            title=f"Availability Trend (Downtime: {downtime*100:.2f}%)",
             plot_bgcolor='rgb(255, 255, 255)', # Light grey background 
             paper_bgcolor='rgb(255, 255, 255)', # Very light grey paper background
             
@@ -119,9 +121,24 @@ def generate_avail_plot(df):
 
 def temp_aux_plot(df):
 
+    df['_time'] = pd.to_datetime(df['_time'])
+
+    # Aux Energy values are always in kWh. Thus, we need to resample the data to 1 hour intervals
+    # and aggregate the values accordingly.
+    df_dwnsample = df.set_index('_time')
+
+    # For numeric columns, use mean; for categorical, use first or last
+    downsampled = df_dwnsample.resample('1h').agg({
+        'p_aux (w)': 'mean',  # or 'last'
+        # add other columns as needed
+    })
+    # Backfill NA values
+    downsampled = downsampled.fillna(method='bfill')
+    downsampled = downsampled.reset_index()
+
     fig = go.Figure()
-    fig.add_trace(go.Bar(y = df['p_aux (w)']*0.001, x = df['_time'], \
-                            name = 'P_Aux', marker_color=prevalon_yellow))
+    fig.add_trace(go.Bar(y = downsampled['p_aux (w)']*0.001, x = downsampled['_time'], \
+                            name = 'Aux Energy (kWh)', marker_color=prevalon_yellow))
 
     fig.add_trace(go.Scatter(y = df['Temp (°C)'], x = df['_time'], \
                             mode = 'lines', name = 'Ambient Temperature', line=dict(color=prevalon_lavender), yaxis='y2'))
@@ -135,6 +152,7 @@ def temp_aux_plot(df):
 
 
     fig.update_layout(
+            title="Auxiliary Power and Ambient Temperature Trend",
             plot_bgcolor='rgb(255, 255, 255)', # Light grey background 
             paper_bgcolor='rgb(255, 255, 255)', # Very light grey paper background
             

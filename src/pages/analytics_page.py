@@ -87,7 +87,7 @@ layout = dbc.Container([
 
     dbc.Row([
         dbc.Col([ 
-            dbc.Spinner(dcc.Graph(id = "aux_temp_trend", style = {"height":"80%", "width":"100%"},
+            dbc.Spinner(dcc.Graph(id = "avail_trend", style = {"height":"80%", "width":"100%"},
                                     )
                         ),
                     ], xs=12, sm=12, md=12, lg=12, xl=12),
@@ -95,7 +95,7 @@ layout = dbc.Container([
 
     dbc.Row([
         dbc.Col([ 
-            dbc.Spinner(dcc.Graph(id = "avail_trend", style = {"height":"80%", "width":"100%"},
+            dbc.Spinner(dcc.Graph(id = "aux_temp_trend", style = {"height":"80%", "width":"100%"},
                                     )
                         ),
                     ], xs=12, sm=12, md=12, lg=12, xl=12),
