@@ -38,23 +38,23 @@ server.register_blueprint(blueprint, url_prefix="/login")
 
 Session(server)
 
-# def login_required(func):
-#     """Require a login for the given view function."""
+def login_required(func):
+    """Require a login for the given view function."""
 
-#     def check_authorization(*args, **kwargs):
-#         global user_name
-#         if not azure.authorized or azure.token.get("expires_in") < 0:
-#             return redirect(url_for("azure.login"))
-#         else:
-#             if user_name is None:
-#                 resp = azure.get("/v1.0/me")
-#                 assert resp.ok, resp.text
-#                 user_info = resp.json()
-#                 session['user_name'] = user_info['displayName']
-#                 dash_app.layout.children[-1].data = session.get('user_name', 'Guest')  # Update the last instance of dcc.Store data
-#             return func(*args, **kwargs)
+    def check_authorization(*args, **kwargs):
+        global user_name
+        if not azure.authorized or azure.token.get("expires_in") < 0:
+            return redirect(url_for("azure.login"))
+        else:
+            if user_name is None:
+                resp = azure.get("/v1.0/me")
+                assert resp.ok, resp.text
+                user_info = resp.json()
+                session['user_name'] = user_info['displayName']
+                dash_app.layout.children[-1].data = session.get('user_name', 'Guest')  # Update the last instance of dcc.Store data
+            return func(*args, **kwargs)
 
-#     return check_authorization
+    return check_authorization
 
 
 # Colors
@@ -78,9 +78,9 @@ dash_app = Dash(__name__, server=server, use_pages=True,
 # https://flask-dance.readthedocs.io/en/v0.9.0/proxies.html#proxies-and-https
 server.wsgi_app = ProxyFix(server.wsgi_app, x_proto=1, x_host=1)
 
-# for view_func in server.view_functions:
-#     if not view_func.startswith("azure"):
-#         server.view_functions[view_func] = login_required(server.view_functions[view_func])
+for view_func in server.view_functions:
+    if not view_func.startswith("azure"):
+        server.view_functions[view_func] = login_required(server.view_functions[view_func])
 
 logo = Image.open("Prevalon Logo.png")
 
