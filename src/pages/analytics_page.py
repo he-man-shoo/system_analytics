@@ -48,8 +48,8 @@ fig_2.add_trace(go.Scatter(
     y=rte_trend_data['median_rte'],
     mode='lines + markers',
     name='Median RTE from Analysis',
-    marker=dict(color=prevalon_yellow, symbol='circle'),
-    line=dict(color=prevalon_yellow), 
+    marker=dict(color='skyblue', symbol='circle'),
+    line=dict(color='skyblue'), 
     connectgaps=True  # <-- This connects points even with None/NaN values
 
 ))
@@ -65,7 +65,7 @@ fig_2.add_trace(go.Scatter(
     connectgaps=True  # <-- This connects points even with None/NaN values
 ))
 
-# Add scatter for tested_rte
+# Add scatter for contracted_rte
 fig_2.add_trace(go.Scatter(
     x=rte_trend_data['year_month'],
     y=rte_trend_data['contracted_rte'],
@@ -212,7 +212,7 @@ layout = dbc.Container([
                         ),
                     ], xs=12, sm=12, md=12, lg=6, xl=6),
         dbc.Col([ 
-            dbc.Spinner(dcc.Graph(id = "rte_trend", style = {"height":"80%", "width":"100%"},
+            dbc.Spinner(dcc.Graph(id = "rte_trend", style = {"height":"100%", "width":"100%"},
                                   figure=fig_2
                                     )
                         ),
