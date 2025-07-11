@@ -88,6 +88,7 @@ page_layout = []
 for page in dash.page_registry.values():
     page_layout.append(dbc.NavItem(dbc.NavLink(page["name"], href=page["path"], active="exact"),))
 
+dash_app._favicon = "prevalon_favicon.png"
 
 dash_app.layout = dbc.Container([
 

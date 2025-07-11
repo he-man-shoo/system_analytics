@@ -133,7 +133,7 @@ def temp_aux_plot(df):
         # add other columns as needed
     })
     # Backfill NA values
-    downsampled = downsampled.fillna(method='bfill')
+    downsampled = downsampled.bfill()
     downsampled = downsampled.reset_index()
 
     fig = go.Figure()
