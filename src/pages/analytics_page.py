@@ -195,6 +195,7 @@ layout = dbc.Container([
                     value=0,
                     marks=slider_marks,
                     id='month_slider',
+                    included=False
                 ),
                 style={"whiteSpace": "nowrap", "width": "100%"}
             ),
