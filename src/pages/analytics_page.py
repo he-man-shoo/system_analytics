@@ -119,10 +119,10 @@ layout = dbc.Container([
         dbc.Col([
             html.A(children=dcc.DatePickerRange(
                                 id='date_picker',
-                                start_date='2025-04-20',  # Initial start date
-                                end_date='2025-05-01',    # Initial end date
+                                start_date='2025-06-20',  # Initial start date
+                                end_date='2025-06-30',    # Initial end date
                                 min_date_allowed='2024-05-01',
-                                max_date_allowed='2025-05-01', 
+                                max_date_allowed='2025-06-30', 
                                 style={'text-align': 'center'},), 
                                 style={'text-align': 'center'})
                 ], xs=12, sm=12, md=12, lg=6, xl=6),
