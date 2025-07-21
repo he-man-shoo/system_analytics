@@ -84,34 +84,35 @@ for view_func in server.view_functions:
 
 logo = Image.open("Prevalon Logo.png")
 
-page_layout = []
-for page in dash.page_registry.values():
-    page_layout.append(dbc.NavItem(dbc.NavLink(page["name"], href=page["path"], active="exact"),))
+# page_layout = []
+# for page in dash.page_registry.values():
+#     if page["name"] in visible_pages:
+#         page_layout.append(dbc.NavItem(dbc.NavLink(page["name"], href=page["path"], active="exact"),))
 
 dash_app._favicon = "prevalon_favicon.png"
 
 dash_app.layout = dbc.Container([
 
     dbc.Row([
-                dbc.Col(
-                    html.A(
-                        children=html.Img(src = logo, width=180),
-                        href= 'https://prevalonenergy.com/', 
-                        target="_blank",
-                    ),
-                    width = {'size':1}, ),
+        dbc.Col(
+            html.A(
+                children=html.Img(src=logo, width=180),
+                href='https://prevalonenergy.com/',
+                target="_blank",
+            ),
+            width=2,  # Fixed width for logo on the left
+            style={'display': 'flex', 'align-items': 'center'}  # Align logo vertically
+        ),
+        dbc.Col(
+            html.H2(id='user_name_display',
+                    className="btn",
+                    style={'backgroundColor': prevalon_purple, 'color': 'white'}),
+            width=8,  # Wider column to center the text
+            style={'display': 'flex', 'justify-content': 'center', 'align-items': 'center', 'margin-top': '25px'}
+        ),
+        dbc.Col(width=2),  # Empty column to balance the layout
+    ], style={'width': '100%'}),
 
-                dbc.Col(html.H2(id='user_name_display', 
-                                className="btn", style={'backgroundColor': prevalon_purple, 'color':'white'}),
-                        width = {'size':6}, style = {'text-align': 'center', "margin-top": "25px"}),
-
-                    dbc.NavbarSimple(
-                                    children = page_layout,
-                                    color=prevalon_purple,
-                                    dark=True,
-                                ),
-                    ],justify='between'),
-    
     html.A(
         dbc.Container([
                         dash.page_container, 
