@@ -44,23 +44,34 @@ def add_period_overlay(fig, df, marker, color, name):
     ))
 
 def generate_soc_plot(df):
-    resting_soc = [df["avail soc %"].mean()] * len(df)
-    contract_resting_soc = [50] * len(df)
+
+    df = df.loc[df['cycle marker'] == 'Standby']
+
+
+    avg_resting_soc = df["avail soc %"].mean()
+
+    avg_resting_soc_list = [avg_resting_soc] * len(df)
+
+    contract_resting_soc = 50
+        
+    contract_resting_soc_list = [contract_resting_soc] * len(df)
+
+    if (avg_resting_soc - contract_resting_soc) < 0:
+        resting_soc_string = f"{abs(avg_resting_soc - contract_resting_soc):.2f}% lower than contractual resting SOC limit"
+    else:
+        resting_soc_string = f"{abs(avg_resting_soc - contract_resting_soc):.2f}% higher than contractual resting SOC"
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(y = df["avail soc %"], x = df['_time'],
-                            mode = 'lines', name = 'State of Charge', line=dict(color=prevalon_purple)))
-    fig.add_trace(go.Scatter(y = resting_soc, x = df['_time'],
-                            mode = 'lines', name = 'Average Resting SOC', line=dict(color=prevalon_cream)))
-    fig.add_trace(go.Scatter(y = contract_resting_soc, x = df['_time'],
+                            mode = 'lines', name = 'Resting SOC', line=dict(color=prevalon_purple)))
+    fig.add_trace(go.Scatter(y = avg_resting_soc_list, x = df['_time'],
+                            mode = 'lines', name = 'Average resting SOC', line=dict(color=prevalon_yellow)))
+    fig.add_trace(go.Scatter(y = contract_resting_soc_list, x = df['_time'],
                             mode = 'lines', name = 'Contractual resting SOC', line=dict(color='rgb(255, 0, 0)')))
 
-    add_period_overlay(fig, df, "Charging", "rgba(166,153,193,0.4)", "Charging Period")
-    add_period_overlay(fig, df, "Discharging", "rgba(252,215,87,0.4)", "Discharging Period")
-    add_period_overlay(fig, df, "Standby", "rgba(208,211,212,0.5)", "Standby Period")
 
     fig.update_layout(
-        title="State of Charge Trend",
+        title=f"Resting State of Charge Trend - Average: {avg_resting_soc:.2f}%, {resting_soc_string}",
         plot_bgcolor='rgb(255, 255, 255)',
         paper_bgcolor='rgb(255, 255, 255)',
         xaxis=dict(showgrid=True, gridcolor='rgb(200, 200, 200)', gridwidth=1, zeroline=False),
@@ -81,21 +92,26 @@ def generate_avail_plot(df):
 
     contract_avail_percentage = [97] * len(df)
 
-    # Site Down Time
+    # Average and Site Down Time
     average_availability = df["availability %"].mean()
+
+    if (average_availability - 97) < 0:
+        availability_string = f"{abs(average_availability - 97):.2f}% lower than contractual availability limit" 
+    else:
+        availability_string = f"{abs(average_availability - 97):.2f}% higher than contractual availability"
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(y = df['availability %'], x = df['_time'], \
-                            mode = 'lines', name = 'Availability %', line=dict(color=prevalon_yellow)))
+                            mode = 'lines', name = 'Availability %', line=dict(color=prevalon_purple)))
 
     fig.add_trace(go.Scatter(y = avail_percentage, x = df['_time'], \
-                            mode = 'lines', name = 'Average availability', line=dict(color=prevalon_lavender)))
+                            mode = 'lines', name = 'Average availability', line=dict(color=prevalon_yellow)))
     
     fig.add_trace(go.Scatter(y = contract_avail_percentage, x = df['_time'], \
                             mode = 'lines', name = 'Contractual availability',  line=dict(color='rgb(255, 0, 0)')))
 
     fig.update_layout(
-            title=f"Availability Trend (Average: {average_availability:.2f}%)",
+            title=f"Availability Trend - Average: {average_availability:.2f}%, {availability_string}",
             plot_bgcolor='rgb(255, 255, 255)', # Light grey background 
             paper_bgcolor='rgb(255, 255, 255)', # Very light grey paper background
             
@@ -181,20 +197,48 @@ def temp_aux_plot(df):
 
     return fig
 
-def generate_rte_plot():
-    
-    rte_trend_data = pd.read_excel('rte_trend_data.xlsx')
+def generate_rte_plot(start_time, end_time):
 
+    
+    start_time =  pd.to_datetime(start_time).tz_localize(None).strftime("%Y-%m-%d %H:%M:%S")
+    end_time = pd.to_datetime(end_time).tz_localize(None).strftime("%Y-%m-%d %H:%M:%S")
+
+    rte_trend_data = pd.read_excel('RTE_filtered.xlsx')
+
+    rte_trend_data['Start Time'] = pd.to_datetime(rte_trend_data['Start Time'])
+    rte_trend_data['End Time'] = pd.to_datetime(rte_trend_data['End Time'])
+
+    rte_trend_data.loc[rte_trend_data['year_month'] == "2024-08", 'tested_rte'] = 0.88
+    rte_trend_data.loc[rte_trend_data['year_month'] == "2025-05", 'tested_rte'] = 0.873
+    
+    rte_trend_data['tested_rte'] = (
+        rte_trend_data['tested_rte'].interpolate(method='linear')
+    )
+    
+    rte_trend_data['contracted_rte'] = [0.832] * len(rte_trend_data)
+
+    rte_trend_data = rte_trend_data[
+        (rte_trend_data['Start Time'] >= start_time) &
+        (rte_trend_data['End Time']   <= end_time)
+    ]
+    
+    # Getting Median RTE for each month
+    rte_trend_data['median_RTE_by_month'] = rte_trend_data.groupby('year_month')['RTE'] \
+                                .transform('median')
+
+    # Getting Median Tested RTE for each month
+    rte_trend_data['tested_rte'] = rte_trend_data.groupby('year_month')['tested_rte'] \
+                                .transform('median')
     fig = go.Figure()
 
     # Add scatter for median_rte
     fig.add_trace(go.Scatter(
         x=rte_trend_data['year_month'],
-        y=rte_trend_data['median_rte'],
+        y=rte_trend_data['median_RTE_by_month'],
         mode='lines + markers',
-        name='Median RTE from Analysis',
-        marker=dict(color='skyblue', symbol='circle'),
-        line=dict(color='skyblue'), 
+        name='Calculated RTE',
+        marker=dict(color=prevalon_purple, symbol='circle'),
+        line=dict(color=prevalon_purple), 
         connectgaps=True  # <-- This connects points even with None/NaN values
 
     ))
@@ -203,10 +247,9 @@ def generate_rte_plot():
     fig.add_trace(go.Scatter(
         x=rte_trend_data['year_month'],
         y=rte_trend_data['tested_rte'],
-        mode='lines+markers',
+        mode='lines',
         name='Tested RTE',
-        marker=dict(color=prevalon_purple, symbol='diamond'),
-        line=dict(color=prevalon_purple, dash='dash'), 
+        line=dict(color=prevalon_yellow, dash='dash'), 
         connectgaps=True  # <-- This connects points even with None/NaN values
     ))
 
@@ -214,10 +257,9 @@ def generate_rte_plot():
     fig.add_trace(go.Scatter(
         x=rte_trend_data['year_month'],
         y=rte_trend_data['contracted_rte'],
-        mode='lines+markers',
+        mode='lines',
         name='Contracted RTE',
-        marker=dict(color='red', symbol='diamond'),
-        line=dict(color='red', dash='dash'), 
+        line=dict(color='red'), 
         connectgaps=True  # <-- This connects points even with None/NaN values
     ))
 
@@ -241,12 +283,12 @@ def generate_rte_plot():
 
     return fig
 
-def generate_throughput_plot(df):
+def generate_throughput_plot(df, proj_energy, num_cyc):
 
     df['_time'] = pd.to_datetime(df['_time'])
     number_of_days = math.ceil((df['_time'].max() - df['_time'].min())/pd.Timedelta(days=1))
     
-    expected_throughput = (380 * 200) * (number_of_days / 365)
+    expected_throughput = (num_cyc * proj_energy) * (number_of_days / 365)
 
     df['MWh discharged @ timestamp'] = df['kwh discharged @ timestamp'] / 1000  # Convert kWh to MWh
 
@@ -258,7 +300,7 @@ def generate_throughput_plot(df):
     else:
         expected_throughput_str = f"{abs(total_throughput - expected_throughput)*100/expected_throughput:.2f}% lower than expected"
 
-    equivalent_cycles = total_throughput / 200  # Calculate equivalent cycles
+    equivalent_cycles = total_throughput / proj_energy  # Calculate equivalent cycles
 
     equivalent_cycles_str = f"{equivalent_cycles:.2f} equivalent cycles"
     # Create the bar chart
@@ -267,7 +309,7 @@ def generate_throughput_plot(df):
         x=df['_time'],
         y=df['MWh discharged @ timestamp'],
         name='Throughput (MWh)',
-        marker=dict(color=prevalon_yellow)  # Using a yellow color similar to prevalon_yellow
+        marker=dict(color=prevalon_purple)  # Using a yellow color similar to prevalon_yellow
     ))
 
     # Update layout to match the original
@@ -280,7 +322,6 @@ def generate_throughput_plot(df):
             gridcolor='rgb(200, 200, 200)',  # Gridline color
             gridwidth=1,  # Gridline width
             zeroline=False,  # Remove zero line
-            title="Time"
         ),
         yaxis=dict(
             title_text="Throughput (MWh)",
