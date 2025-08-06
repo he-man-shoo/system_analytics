@@ -84,46 +84,62 @@ for view_func in server.view_functions:
 
 logo = Image.open("Prevalon Logo.png")
 
-# page_layout = []
-# for page in dash.page_registry.values():
-#     if page["name"] in visible_pages:
-#         page_layout.append(dbc.NavItem(dbc.NavLink(page["name"], href=page["path"], active="exact"),))
+page_layout = []
+visible_pages = ['Entire Fleet']
+for page in dash.page_registry.values():
+    if page["name"] in visible_pages:
+        page_layout.append(dbc.NavItem(dbc.NavLink(page["name"], href=page["path"], active="exact"),))
 
 dash_app._favicon = "prevalon_favicon.png"
 
 dash_app.layout = dbc.Container([
 
+    # Navbar, Username, and Logo in the same row
     dbc.Row([
+        # Logo on the left
         dbc.Col(
             html.A(
                 children=html.Img(src=logo, width=180),
                 href='https://prevalonenergy.com/',
                 target="_blank",
             ),
-            width=2,  # Fixed width for logo on the left
+            width=4,  # Fixed width for the logo
             style={'display': 'flex', 'align-items': 'center'}  # Align logo vertically
         ),
+        
         dbc.Col(
             html.H2(id='user_name_display',
                     className="btn",
-                    style={'backgroundColor': prevalon_purple, 'color': 'white'}),
-            width=8,  # Wider column to center the text
-            style={'display': 'flex', 'justify-content': 'center', 'align-items': 'center', 'margin-top': '25px'}
+                    style={'backgroundColor': prevalon_purple, 'color': 'white', 'padding': '10px 20px'}),
+            width=4,  # Adjust width as needed
+            style={'display': 'flex', 'justify-content': 'center', 'align-items': 'center'}
         ),
-        dbc.Col(width=2),  # Empty column to balance the layout
-    ], style={'width': '100%'}),
 
-    html.A(
-        dbc.Container([
-                        dash.page_container, 
-                        ], fluid=True, ), ), 
+        dbc.Col(
+            dbc.NavbarSimple(
+                children=page_layout,
+                color=prevalon_purple,
+                dark=True,
+            ),
+            width=4,  # Adjust width as needed
+            style={'display': 'flex', 'justify-content': 'flex-end', 'align-items': 'center'}
+        ),
 
+
+    ], justify='between', align='center'),  # Distribute content evenly in the row
+
+    # Page content
+    dbc.Container([
+        dash.page_container,
+    ], fluid=True),
+
+    # Hidden stores
     dcc.Store(id="stored_bol_qtys"),
     dcc.Store(id="stored_edit_project_details"),
-    dcc.Store(id="stored_user_name", data=user_name), # user_name should be always the last dcc.Store
+    dcc.Store(id="stored_user_name", data=user_name),  # user_name should always be the last dcc.Store
 
+], fluid=True)
 
- ], fluid=True,) 
 
 @dash_app.server.route('/download/<path:path>')
 def serve_static(path):

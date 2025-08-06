@@ -4,158 +4,86 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 import certifi
 import os
 from dotenv import load_dotenv
+from functools import lru_cache
 
 # Load environment variables from .env file
 load_dotenv()
 
-def query_influx_mean(parameters, start_date, end_date, sampling_rate):
+# InfluxDB connection settings
+_url = "https://us-east-1-1.aws.cloud2.influxdata.com"
+_token = os.environ.get('influx_token')
+_org = "System Analytics Tool"
+_bucket = "site_data"
+_timeout = 60_000
+_ssl_ca_cert = certifi.where()
+_measurement = "Origis_GT2_Test_3"
 
-    # Your InfluxDB Cloud credentials
-    url = "https://us-east-1-1.aws.cloud2.influxdata.com"  # Replace with your region
-    token = os.environ.get('influx_token') # Replace with your token
-    org = "System Analytics Tool"                                  # Replace with your org
-    bucket = "site_data"                            # Replace with your bucket
-    timeout=60_000  # in milliseconds
-    ssl_ca_cert=certifi.where()
-    measurement = "Origis_GT2_Test_2"
+# Singleton client and query API
+_client = InfluxDBClient(
+    url=_url,
+    token=_token,
+    org=_org,
+    timeout=_timeout,
+    ssl_ca_cert=_ssl_ca_cert
+)
+_query_api = _client.query_api()
 
-    # Initialize client
-    client = InfluxDBClient(url=url, token=token, org=org, timeout=timeout, ssl_ca_cert=ssl_ca_cert)
-
-    if isinstance(parameters, str):
-        parameters = [p.strip() for p in parameters.split(",")]
-
-    string_fields = ["cycle marker"]  # Add any other string fields here
-    numeric_params = [p for p in parameters if p not in string_fields]
-    dfs = []
-
-
-    # Query numeric fields (downsampled)
-    for param in numeric_params:
-        query = f'''
-        from(bucket: "{bucket}")
-        |> range(start: {start_date}, stop: {end_date})
-        |> filter(fn: (r) => r["_measurement"] == "{measurement}")
-        |> filter(fn: (r) => r["_field"] == "{param}")
-        |> aggregateWindow(every: {sampling_rate}, fn: mean, createEmpty: false)
-        |> keep(columns: ["_time", "_field", "_value"])
-        |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
-        '''
-        df = client.query_api().query_data_frame(query, org=org)
-        dfs.append(df)
-
-    # Merge numeric fields
-    if dfs:
-        df_merged = pd.concat(dfs, axis=1)
-        df_merged = df_merged.loc[:,~df_merged.columns.duplicated()]
-    else:
-        df_merged = pd.DataFrame()
-
-    # Query and downsample "cycle marker" (mode per window)
-    if "cycle marker" in parameters:
-        query = f'''
-        from(bucket: "{bucket}")
-        |> range(start: {start_date}, stop: {end_date})
-        |> filter(fn: (r) => r["_measurement"] == "{measurement}")
-        |> filter(fn: (r) => r["_field"] == "cycle marker")
-        |> aggregateWindow(every: {sampling_rate}, fn: last, createEmpty: false)
-        |> keep(columns: ["_time", "_field", "_value"])
-        |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
-        '''
-        df_cycle = client.query_api().query_data_frame(query, org=org)
-        # Merge with numeric data on _time
-        if not df_cycle.empty:
-            df_merged = pd.merge(df_merged, df_cycle[["_time", "cycle marker"]], on="_time", how="outer")
-
-    client.close()
-
-    return df_merged
-
-def query_influx_sum(parameters, start_date, end_date, sampling_rate):
-
-    # Your InfluxDB Cloud credentials
-    url = "https://us-east-1-1.aws.cloud2.influxdata.com"  # Replace with your region
-    token = os.environ.get('influx_token') # Replace with your token
-    org = "System Analytics Tool"                                  # Replace with your org
-    bucket = "site_data"                            # Replace with your bucket
-    timeout=60_000  # in milliseconds
-    ssl_ca_cert=certifi.where()
-    measurement = "Origis_GT2_Test_2"
-
-    # Initialize client
-    client = InfluxDBClient(url=url, token=token, org=org, timeout=timeout, ssl_ca_cert=ssl_ca_cert)
+def query_influx_database(parameters, agg_function, start_date, end_date, sampling_rate):
 
     if isinstance(parameters, str):
         parameters = [p.strip() for p in parameters.split(",")]
 
     string_fields = ["cycle marker"]  # Add any other string fields here
-    numeric_params = [p for p in parameters if p not in string_fields]
-    dfs = []
+    numeric_fields = [p for p in parameters if p not in string_fields]
 
+    numeric_fields_filter = " or ".join(f'r._field == "{p}"' for p in numeric_fields)
+    string_fields_filter = " or ".join(f'r._field == "{p}"' for p in string_fields)
 
     # Query numeric fields (downsampled)
-    for param in numeric_params:
-        query = f'''
-        from(bucket: "{bucket}")
+    query = f'''
+        from(bucket: "{_bucket}")
         |> range(start: {start_date}, stop: {end_date})
-        |> filter(fn: (r) => r["_measurement"] == "{measurement}")
-        |> filter(fn: (r) => r["_field"] == "{param}")
-        |> aggregateWindow(every: {sampling_rate}, fn: sum, createEmpty: false)
+        |> filter(fn: (r) => r["_measurement"] == "{_measurement}" and ({numeric_fields_filter}))
+        |> aggregateWindow(every: {sampling_rate}, fn: {agg_function}, createEmpty: false)
         |> keep(columns: ["_time", "_field", "_value"])
         |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
         '''
-        df = client.query_api().query_data_frame(query, org=org)
-        dfs.append(df)
+    df = _query_api.query_data_frame(query, org=_org)
 
     # Merge numeric fields
-    if dfs:
-        df_merged = pd.concat(dfs, axis=1)
+    if len(df) > 1:
+        df_merged = df
         df_merged = df_merged.loc[:,~df_merged.columns.duplicated()]
     else:
         df_merged = pd.DataFrame()
 
-    # Query and downsample "cycle marker" (mode per window)
-    if "cycle marker" in parameters:
+    # Query and downsample "cycle marker" (last per window)
+    if string_fields:
         query = f'''
-        from(bucket: "{bucket}")
+        from(bucket: "{_bucket}")
         |> range(start: {start_date}, stop: {end_date})
-        |> filter(fn: (r) => r["_measurement"] == "{measurement}")
-        |> filter(fn: (r) => r["_field"] == "cycle marker")
+        |> filter(fn: (r) => r["_measurement"] == "{_measurement}" and ({string_fields_filter}))
         |> aggregateWindow(every: {sampling_rate}, fn: last, createEmpty: false)
         |> keep(columns: ["_time", "_field", "_value"])
         |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
         '''
-        df_cycle = client.query_api().query_data_frame(query, org=org)
+        df_cycle = _query_api.query_data_frame(query, org=_org)
         # Merge with numeric data on _time
         if not df_cycle.empty:
-            df_merged = pd.merge(df_merged, df_cycle[["_time", "cycle marker"]], on="_time", how="outer")
-
-    client.close()
+            df_merged = pd.merge(df_merged, df_cycle, on="_time", how="outer")
 
     return df_merged
 
+@lru_cache(maxsize=1)
 def get_first_and_last_date():
 
     parameters = 'Temp (°C)'
-    # Your InfluxDB Cloud credentials
-    url = "https://us-east-1-1.aws.cloud2.influxdata.com"  # Replace with your region
-    token = os.environ.get('influx_token') # Replace with your token
-    org = "System Analytics Tool"                                  # Replace with your org
-    bucket = "site_data"                            # Replace with your bucket
-    timeout=60_000  # in milliseconds
-    ssl_ca_cert=certifi.where()
-    measurement = "Origis_GT2_Test_2"
-
-    # Initialize client
-    client = InfluxDBClient(url=url, token=token, org=org, timeout=timeout, ssl_ca_cert=ssl_ca_cert)
-
-    query_api = client.query_api()
 
     # Query for the first timestamp
     first_date_query = f'''
-        from(bucket: "{bucket}")
+        from(bucket: "{_bucket}")
         |> range(start: 0, stop: now())
-        |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+        |> filter(fn: (r) => r["_measurement"] == "{_measurement}")
         |> filter(fn: (r) => r["_field"] == "{parameters}")
         |> sort(columns: ["_time"], desc: false)
         |> first()
@@ -164,9 +92,9 @@ def get_first_and_last_date():
 
     # Query for the last timestamp
     last_date_query = f'''
-        from(bucket: "{bucket}")
+        from(bucket: "{_bucket}")
         |> range(start: 0, stop: now())
-        |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+        |> filter(fn: (r) => r["_measurement"] == "{_measurement}")
         |> filter(fn: (r) => r["_field"] == "{parameters}")
         |> sort(columns: ["_time"], desc: true)
         |> first()
@@ -174,10 +102,8 @@ def get_first_and_last_date():
     '''
     
     # Execute queries
-    first_tables = query_api.query(first_date_query)
-    last_tables = query_api.query(last_date_query)
-
-    client.close()
+    first_tables = _query_api.query(first_date_query, org=_org)
+    last_tables = _query_api.query(last_date_query, org=_org)
 
     # Extract timestamps
     first_date = first_tables[0].records[0]["_time"] if first_tables else None
@@ -188,3 +114,5 @@ def get_first_and_last_date():
     last_date = pd.to_datetime(last_date) if last_date else None
     
     return first_date, last_date
+
+_client.close()

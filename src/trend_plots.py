@@ -2,7 +2,17 @@ import pandas as pd
 from datetime import datetime, timedelta, UTC
 import plotly.graph_objects as go
 import math
+import plotly.express as px
 
+# Pre-load and preprocess RTE data (static)
+_rte_data = pd.read_excel('RTE_filtered.xlsx')
+_rte_data['Start Time'] = pd.to_datetime(_rte_data['Start Time'])
+_rte_data['End Time'] = pd.to_datetime(_rte_data['End Time'])
+# Apply boundary fixes and interpolation
+_rte_data.loc[_rte_data['year_month'] == "2024-08", 'tested_rte'] = 0.88
+_rte_data.loc[_rte_data['year_month'] == "2025-05", 'tested_rte'] = 0.873
+_rte_data['tested_rte'] = _rte_data['tested_rte'].interpolate(method='linear')
+_rte_data['contracted_rte'] = 0.832
 
 
 
@@ -203,38 +213,21 @@ def generate_rte_plot(start_time, end_time):
     start_time =  pd.to_datetime(start_time).tz_localize(None).strftime("%Y-%m-%d %H:%M:%S")
     end_time = pd.to_datetime(end_time).tz_localize(None).strftime("%Y-%m-%d %H:%M:%S")
 
-    rte_trend_data = pd.read_excel('RTE_filtered.xlsx')
+    df = _rte_data[( _rte_data['Start Time'] >= start_time) & (_rte_data['End Time'] <= end_time)].copy()
 
-    rte_trend_data['Start Time'] = pd.to_datetime(rte_trend_data['Start Time'])
-    rte_trend_data['End Time'] = pd.to_datetime(rte_trend_data['End Time'])
-
-    rte_trend_data.loc[rte_trend_data['year_month'] == "2024-08", 'tested_rte'] = 0.88
-    rte_trend_data.loc[rte_trend_data['year_month'] == "2025-05", 'tested_rte'] = 0.873
-    
-    rte_trend_data['tested_rte'] = (
-        rte_trend_data['tested_rte'].interpolate(method='linear')
-    )
-    
-    rte_trend_data['contracted_rte'] = [0.832] * len(rte_trend_data)
-
-    rte_trend_data = rte_trend_data[
-        (rte_trend_data['Start Time'] >= start_time) &
-        (rte_trend_data['End Time']   <= end_time)
-    ]
-    
     # Getting Median RTE for each month
-    rte_trend_data['median_RTE_by_month'] = rte_trend_data.groupby('year_month')['RTE'] \
+    df['median_RTE_by_month'] = df.groupby('year_month')['RTE'] \
                                 .transform('median')
 
     # Getting Median Tested RTE for each month
-    rte_trend_data['tested_rte'] = rte_trend_data.groupby('year_month')['tested_rte'] \
+    df['tested_rte'] = df.groupby('year_month')['tested_rte'] \
                                 .transform('median')
     fig = go.Figure()
 
     # Add scatter for median_rte
     fig.add_trace(go.Scatter(
-        x=rte_trend_data['year_month'],
-        y=rte_trend_data['median_RTE_by_month'],
+        x=df['year_month'],
+        y=df['median_RTE_by_month'],
         mode='lines + markers',
         name='Calculated RTE',
         marker=dict(color=prevalon_purple, symbol='circle'),
@@ -245,8 +238,8 @@ def generate_rte_plot(start_time, end_time):
 
     # Add scatter for tested_rte
     fig.add_trace(go.Scatter(
-        x=rte_trend_data['year_month'],
-        y=rte_trend_data['tested_rte'],
+        x=df['year_month'],
+        y=df['tested_rte'],
         mode='lines',
         name='Tested RTE',
         line=dict(color=prevalon_yellow, dash='dash'), 
@@ -255,8 +248,8 @@ def generate_rte_plot(start_time, end_time):
 
     # Add scatter for contracted_rte
     fig.add_trace(go.Scatter(
-        x=rte_trend_data['year_month'],
-        y=rte_trend_data['contracted_rte'],
+        x=df['year_month'],
+        y=df['contracted_rte'],
         mode='lines',
         name='Contracted RTE',
         line=dict(color='red'), 
@@ -341,3 +334,91 @@ def generate_throughput_plot(df, proj_energy, num_cyc):
     )
     return fig
 
+
+def generate_revenue_plot(df):
+    
+    fig = go.Figure()
+    
+    # Add Revenue_Discharging
+    fig.add_trace(go.Bar(
+        x=df['_time'],
+        y=round(df['Revenue_Discharging'], 2),
+        name='Revenue Discharging',
+        marker=dict(color=prevalon_purple)  # Purple
+    ))
+
+    # Add Revenue_Charging
+    fig.add_trace(go.Bar(
+        x=df['_time'],
+        y=round(df['Revenue_Charging'], 2),
+        name='Revenue Charging',
+        marker=dict(color=prevalon_yellow)  # Yellow
+    ))
+
+    # Add Revenue_Standby
+    fig.add_trace(go.Bar(
+        x=df['_time'],
+        y=round(df['Revenue_Standby'], 2), 
+        name='Revenue Standby',
+        marker=dict(color=prevalon_slate)  # Light gray
+    ))
+
+
+    # Update layout for stacked bar chart
+    fig.update_layout(
+        barmode='group',  # Group bars together
+        title=f'Revenue Trend; Net Revenue on Merchant Market: ${(df['Revenue_Charging'].sum() + df['Revenue_Discharging'].sum() + df['Revenue_Standby'].sum()):,.2f}',
+        bargap=0.25,        # gives each group breathing room
+        plot_bgcolor='rgb(255, 255, 255)',  # White background
+        paper_bgcolor='rgb(255, 255, 255)',  # White paper background
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='rgb(200, 200, 200)',
+            gridwidth=1
+        ),
+        yaxis=dict(
+            title='Revenue ($)',
+            showgrid=True,
+            gridcolor='rgb(200, 200, 200)',
+            gridwidth=1
+        ),
+        legend=dict(
+            orientation="h",  # Horizontal legend
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5
+        )
+    )
+
+    return fig
+
+def generate_fuel_mix_plot(df):
+    
+    # Convert time
+    df['time'] = pd.to_datetime(df['_time'])
+
+    # Define your fuel columns in the order you want them stacked
+    sources = ['Coal', 'Natural Gas', 'Nuclear', 'Wind', 'Hydro', 'Solar', 'Storage', 'Others']
+
+    # 2) Percent-stacked area
+    df_pct = df[['time'] + sources] \
+        .melt(id_vars='time', var_name='source', value_name='pct')
+
+    fig = px.area(
+        df_pct,
+        x='time',
+        y='pct',
+        color='source',
+        groupnorm='percent',             # ← key for percentage stacking
+        title='Fuel share of total generation',
+        labels={'pct': '% of total generation', 'time': 'Date'}
+    )
+    fig.update_yaxes(ticksuffix='%', rangemode='tozero')
+    fig.update_layout(
+        plot_bgcolor='rgb(255, 255, 255)',  # White background
+        paper_bgcolor='rgb(255, 255, 255)',  # White paper background
+    )
+             
+
+    return fig

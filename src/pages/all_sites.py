@@ -19,7 +19,7 @@ microgrid_icon = Image.open("microgrid_icon.png")
 solar_panel_icon = Image.open("solar_panel_icon.png")
 energy_icon = Image.open("energy_icon.png")
 
-
+site_details_style = {'padding': '10px', 'background-color': '#F7FAFC', 'margin': '10px', 'display': 'flex', 'align-items': 'center'}
 # Define the layout of the website
 layout = dbc.Container([
 
@@ -34,7 +34,7 @@ layout = dbc.Container([
                 html.Li("Long-Term Service Agreement: 10 years"),
                 html.Li("Emergency Backup Power for Critical Public Services")
             ])
-        ], width=5, style={'padding': '10px', 'background-color': '#F7FAFC', 'margin': '10px'}),
+        ], width=5),
 
         dbc.Col([
             html.Img(src = energy_icon, style={'width': '48px', 'height': '48px'}),            
@@ -46,9 +46,9 @@ layout = dbc.Container([
                 html.Li("Long-Term Service Agreement: 10 years"),
                 html.Li("Designed to high seismic performance qualification level in accordance with IEEE 693-2018")
             ])
-        ], width=5, style={'padding': '10px', 'background-color': '#F7FAFC', 'margin': '10px'})
+        ], width=5,)
 
-    ], justify='around', align='center'),
+    ], justify='around', align='center', style = site_details_style),
 
     dbc.Row([
         dbc.Col([
@@ -61,7 +61,7 @@ layout = dbc.Container([
                 html.Li("Long-Term Service Agreement: 10 years"),
                 html.Li("Reducing curtailment of excess renewable generation")
             ])
-        ], width=5, style={'padding': '10px', 'background-color': '#F7FAFC', 'margin': '10px'}),
+        ], width=5,),
 
         dbc.Col([
             html.Img(src = solar_panel_icon, style={'width': '48px', 'height': '48px'}),            
@@ -72,8 +72,8 @@ layout = dbc.Container([
                 html.Li("Application: Solar + Storage & Grid Firming"),
                 html.Li("Supporting Chile's national decarbonization goals to achieve 80% clean electric by 2030 and 100% by 2050")
             ])
-        ], width=5, style={'padding': '10px', 'background-color': '#F7FAFC', 'margin': '10px'})
-    ], justify='around', align='center'),
+        ], width=5,)
+    ], justify='around', align='center', style = site_details_style),
 
     dbc.Row([
         dbc.Col([
@@ -86,7 +86,7 @@ layout = dbc.Container([
                 html.Li("Long-Term Service Agreement: 10 years"),
                 html.Li("Reducing curtailment of excess renewable generation")
             ])
-        ], width=5, style={'padding': '10px', 'background-color': '#F7FAFC', 'margin': '10px'}),
+        ], width=5,),
 
         dbc.Col([
             html.Img(src = solar_panel_icon, style={'width': '48px', 'height': '48px'}),            
@@ -97,8 +97,8 @@ layout = dbc.Container([
                 html.Li("Application: Solar + Storage & Grid Firming"),
                 html.Li("Supporting Chile's national decarbonization goals to achieve 80% clean electric by 2030 and 100% by 2050")
             ])
-        ], width=5, style={'padding': '10px', 'background-color': '#F7FAFC', 'margin': '10px'})
-    ], justify='around', align='center'),
+        ], width=5, )
+    ], justify='around', align='center', style = site_details_style),
 
     dbc.Row([
 
@@ -111,7 +111,7 @@ layout = dbc.Container([
                 html.Li("Application: Resource Adequacy"),
                 html.Li("Supporting Idaho's decarbonization goal of delivering 100% clean energy by 2045.")
             ])
-        ], width=5, style={'padding': '10px', 'background-color': '#F7FAFC', 'margin': '10px'})
+        ], width=5, style = site_details_style)
     ], justify='around', align='center'),
 
 ], fluid=True),

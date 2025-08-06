@@ -13,8 +13,8 @@ from dash import callback_context as ctx
 
 
 
-from trend_plots import generate_soc_plot, generate_avail_plot, temp_aux_plot, generate_rte_plot, generate_throughput_plot
-from read_Influx_db import query_influx_mean, get_first_and_last_date, query_influx_sum
+from trend_plots import generate_soc_plot, generate_avail_plot, temp_aux_plot, generate_rte_plot, generate_throughput_plot, generate_revenue_plot, generate_fuel_mix_plot
+from read_Influx_db import query_influx_database, get_first_and_last_date
 from table_layout import table_format
 
 dash.register_page(__name__, name="Golden Triangle II", path="/projects/gt_2", order=0)
@@ -197,8 +197,7 @@ layout = dbc.Container([
                     ], xs=12, sm=12, md=12, lg=6, xl=6),
 
         dbc.Col([ 
-            dbc.Spinner(dcc.Graph(id = "g", style = {"height":"100%", "width":"100%"},
-                                figure = go.Figure().update_layout(title=f"Development in Progress - Revenue Generated $$"))
+            dbc.Spinner(dcc.Graph(id = "revenue_stream", style = {"height":"100%", "width":"100%"},)
                         ),
                     ], xs=12, sm=12, md=12, lg=6, xl=6),
 
@@ -213,12 +212,14 @@ layout = dbc.Container([
                     ], xs=12, sm=12, md=12, lg=6, xl=6),
 
         dbc.Col([ 
-            dbc.Spinner(dcc.Graph(id = "j", style = {"height":"100%", "width":"100%"},
-                                figure = go.Figure().update_layout(title=f"Development in Progress - CO2 emissions avoided"))
+            dbc.Spinner(dcc.Graph(id = "fuel_mix", style = {"height":"100%", "width":"100%"},)
                         ),
                     ], xs=12, sm=12, md=12, lg=6, xl=6),
 
     ], justify='around', align='center'),
+
+
+    dcc.Store(id = "stored_first_last_date")
 
 ], fluid=True),
 
@@ -227,6 +228,9 @@ layout = dbc.Container([
     Output('throughput_trend', 'figure'),
     Output('rte_trend', 'figure'),
     Output('resting_soc', 'figure'),
+    Output('revenue_stream', 'figure'),
+    Output('fuel_mix', 'figure'),
+    Output("stored_first_last_date","data"),
     Output("btn_1D", "style"),
     Output("btn_1W", "style"),
     Output("btn_1M", "style"),
@@ -241,8 +245,9 @@ layout = dbc.Container([
     Input('btn_YTD', 'n_clicks'),
     Input('btn_1Y', 'n_clicks'),
     Input('btn_ALL', 'n_clicks'),
+    Input('stored_first_last_date', 'data')
 )
-def update_plot(btn_1D, btn_1W, btn_1M, btn_3M, btn_YTD, btn_1Y, btn_ALL):
+def update_plot(btn_1D, btn_1W, btn_1M, btn_3M, btn_YTD, btn_1Y, btn_ALL, stored_first_last_date):
     # 1) Figure out which button was clicked (None if first load)
     triggered = None
     if ctx.triggered:
@@ -252,10 +257,19 @@ def update_plot(btn_1D, btn_1W, btn_1M, btn_3M, btn_YTD, btn_1Y, btn_ALL):
 
     # 2) Whitelist & default
     valid = ["btn_1D","btn_1W","btn_1M","btn_3M","btn_YTD","btn_1Y","btn_ALL"]
-    button_id = triggered if triggered in valid else "btn_1Y"
+    button_id = triggered if triggered in valid else "btn_1D"
 
     # 3) Date bounds
-    first_date, last_date = get_first_and_last_date()
+    if stored_first_last_date:
+        first_date, last_date = stored_first_last_date
+        first_date = pd.to_datetime(first_date)
+        last_date = pd.to_datetime(last_date)
+
+    else:
+        first_date, last_date = get_first_and_last_date()
+
+
+    stored_first_last_date = [first_date, last_date]
 
     # 4) Map each button to its start‐offset & Flux windows
     cfg = {
@@ -268,19 +282,19 @@ def update_plot(btn_1D, btn_1W, btn_1M, btn_3M, btn_YTD, btn_1Y, btn_ALL):
         "btn_ALL": {"start": first_date,                          "freqs":("1d","1mo")},
     }[button_id]
 
-    # 5) Format ISO strings
+    # 5) Format ISO strings``
     start_iso = cfg["start"].strftime('%Y-%m-%dT%H:%M:%SZ')
     end_iso   = last_date.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     # 6) Build figures
     freq_a, freq_t = cfg["freqs"]
+
     fig_avail   = generate_avail_plot(
-        query_influx_mean("availability %", start_iso, end_iso, freq_a)
+        query_influx_database("availability %", "mean", start_iso, end_iso, freq_a)
     )
 
-
     fig_through = generate_throughput_plot(
-        query_influx_sum("kwh discharged @ timestamp", start_iso, end_iso, freq_t), 
+        query_influx_database("kwh discharged @ timestamp", "sum", start_iso, end_iso, freq_t), 
         proj_energy, 
         proj_num_cyc,
     )
@@ -288,9 +302,16 @@ def update_plot(btn_1D, btn_1W, btn_1M, btn_3M, btn_YTD, btn_1Y, btn_ALL):
     fig_rte = generate_rte_plot(start_iso, end_iso)
 
     fig_resting_soc = generate_soc_plot(
-        query_influx_mean(["avail soc %", "cycle marker"], start_iso, end_iso, freq_a), 
+        query_influx_database(["avail soc %", "cycle marker"], "mean", start_iso, end_iso, freq_a), 
     )
 
+    fig_revenue_stream = generate_revenue_plot(
+        query_influx_database(["Revenue_Standby", "Revenue_Charging", "Revenue_Discharging"], "sum", start_iso, end_iso, freq_t), 
+    )
+
+    fig_fuel_mix = generate_fuel_mix_plot(
+        query_influx_database(["Coal", "Natural Gas", "Nuclear", "Wind", "Hydro", "Solar", "Storage", "Others", "Total_MW"], "mean", start_iso, end_iso, freq_t), 
+    )
 
     # 7) Highlight the active button
     default = default_button_style
@@ -298,4 +319,4 @@ def update_plot(btn_1D, btn_1W, btn_1M, btn_3M, btn_YTD, btn_1Y, btn_ALL):
     styles = [ active if btn==button_id else default
                for btn in valid ]
 
-    return fig_avail, fig_through, fig_rte, fig_resting_soc, *styles
+    return fig_avail, fig_through, fig_rte, fig_resting_soc, fig_revenue_stream, fig_fuel_mix, stored_first_last_date, *styles
