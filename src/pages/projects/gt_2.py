@@ -13,9 +13,11 @@ from dash import callback_context as ctx
 
 
 
-from trend_plots import generate_soc_plot, generate_avail_plot, temp_aux_plot, generate_rte_plot, generate_throughput_plot, generate_revenue_plot, generate_fuel_mix_plot
+from trend_plots import generate_soc_plot, generate_avail_plot, temp_aux_plot, generate_rte_plot, generate_throughput_plot, generate_revenue_plot, generate_fuel_mix_pie
 from read_Influx_db import query_influx_database, get_first_and_last_date
 from table_layout import table_format
+from report import create_report
+
 
 dash.register_page(__name__, name="Golden Triangle II", path="/projects/gt_2", order=0)
 
@@ -49,6 +51,22 @@ active_button_style = {
     "fontWeight": "bold",
 }
 
+download_button_style={
+            'backgroundColor': prevalon_yellow,  # Yellow background
+            'padding': '10px',  # Padding to match button size
+            'fontSize': '18px',  # Font size
+            'fontWeight': 'bold',  # Bold text
+            'color': prevalon_purple,  # Dark text color (adjust as needed)
+            'textAlign': 'center',
+            'textDecoration': 'none',
+            'cursor': 'pointer',
+            'borderRadius': '0',  # No rounding, matching the image
+            'display': 'inline-block',
+            'margin': '5px',  # Margin between buttons
+            'margin-left': '50px',  # Margin between buttons
+        }
+
+
 proj_name = "Golden Triangle II"
 proj_details = pd.read_excel('Project Details.xlsx')
 proj_details = proj_details[proj_details['Project'] == proj_name]
@@ -68,9 +86,12 @@ proj_num_cyc = float(proj_details.loc['BESS Expected number of cycles/year', 1])
 proj_details.columns = proj_details.iloc[1]
 
 proj_details = proj_details[2:]
-
+proj_details_report = proj_details
 
 project_image = Image.open("GT2_Site.jpg")
+
+project_ga = "https://prevalonenergy.sharepoint.com/:b:/r/sites/Proposals/Shared%20Documents/General/System%20Analytics%20Tool%20-%20Attachments/BC-C01-02_%20BESS%20-%20GOLDEN%20TRIANGLE%202%20GT2%20GENERAL%20ARRANGEMENT%20Rev.0%20markup.pdf?csf=1&web=1&e=yi2GQn"
+project_sat = "https://prevalonenergy.sharepoint.com/:x:/r/sites/Proposals/Shared%20Documents/General/System%20Analytics%20Tool%20-%20Attachments/GT2%20Performance%20Test%20Report%20REV3.xlsx?d=wb33885c67aef43aca3b3c647b71a5fca&csf=1&web=1&e=4SpIsQ"
 
 # Define the layout of the website
 layout = dbc.Container([
@@ -111,7 +132,7 @@ layout = dbc.Container([
                         src="/assets/icon_layout.png",
                         style={"height": "90px", "verticalAlign": "middle"}
                     ),
-                    href="https://prevalonenergy.sharepoint.com/:b:/r/sites/Proposals/Shared%20Documents/General/System%20Analytics%20Tool%20-%20Attachments/BC-C01-02_%20BESS%20-%20GOLDEN%20TRIANGLE%202%20GT2%20GENERAL%20ARRANGEMENT%20Rev.0%20markup.pdf?csf=1&web=1&e=yi2GQn",
+                    href= project_ga,
                     target="_blank",
                     title="General Arrangement Drawing of the Site",  # Hover text
                     style={"display": "inline-block",}
@@ -122,7 +143,7 @@ layout = dbc.Container([
                         src="/assets/icon_sat.png",
                         style={"height": "90px", "verticalAlign": "middle"}
                     ),
-                    href="https://prevalonenergy.sharepoint.com/:x:/r/sites/Proposals/Shared%20Documents/General/System%20Analytics%20Tool%20-%20Attachments/GT2%20Performance%20Test%20Report%20REV3.xlsx?d=wb33885c67aef43aca3b3c647b71a5fca&csf=1&web=1&e=4SpIsQ",
+                    href=project_sat,
                     target="_blank",
                     title="Site Acceptance Test Result",  # Hover text
                     style={"display": "inline-block"}
@@ -149,6 +170,7 @@ layout = dbc.Container([
                     html.Button('Year to Date', id='btn_YTD', n_clicks=0, style = default_button_style),
                     html.Button('1 Year', id='btn_1Y', n_clicks=0, style = default_button_style),
                     html.Button('All Time', id='btn_ALL', n_clicks=0, style = default_button_style),
+                    dbc.Spinner(html.A('Download Report', id='download_report', href='', style = download_button_style),)
                     ], style={'display': 'flex', 'justify-content': 'center', 'align-items': 'center', 'margin-top': '25px'}
                 ),
                 ], xs=12, sm=12, md=12, lg=8, xl=8),
@@ -218,8 +240,8 @@ layout = dbc.Container([
 
     ], justify='around', align='center'),
 
-
-    dcc.Store(id = "stored_first_last_date")
+    dcc.Store(id = "stored_first_last_date"),
+    dcc.Store(id = "stored_proj_details", data = proj_details_report.to_dict())
 
 ], fluid=True),
 
@@ -231,6 +253,7 @@ layout = dbc.Container([
     Output('revenue_stream', 'figure'),
     Output('fuel_mix', 'figure'),
     Output("stored_first_last_date","data"),
+    Output('download_report', 'href'),
     Output("btn_1D", "style"),
     Output("btn_1W", "style"),
     Output("btn_1M", "style"),
@@ -245,9 +268,10 @@ layout = dbc.Container([
     Input('btn_YTD', 'n_clicks'),
     Input('btn_1Y', 'n_clicks'),
     Input('btn_ALL', 'n_clicks'),
-    Input('stored_first_last_date', 'data')
+    Input('stored_first_last_date', 'data'), 
+    Input('stored_proj_details', 'data')
 )
-def update_plot(btn_1D, btn_1W, btn_1M, btn_3M, btn_YTD, btn_1Y, btn_ALL, stored_first_last_date):
+def update_plot(btn_1D, btn_1W, btn_1M, btn_3M, btn_YTD, btn_1Y, btn_ALL, stored_first_last_date, proj_details):
     # 1) Figure out which button was clicked (None if first load)
     triggered = None
     if ctx.triggered:
@@ -309,8 +333,8 @@ def update_plot(btn_1D, btn_1W, btn_1M, btn_3M, btn_YTD, btn_1Y, btn_ALL, stored
         query_influx_database(["Revenue_Standby", "Revenue_Charging", "Revenue_Discharging"], "sum", start_iso, end_iso, freq_t), 
     )
 
-    fig_fuel_mix = generate_fuel_mix_plot(
-        query_influx_database(["Coal", "Natural Gas", "Nuclear", "Wind", "Hydro", "Solar", "Storage", "Others", "Total_MW"], "mean", start_iso, end_iso, freq_t), 
+    fig_fuel_mix = generate_fuel_mix_pie(
+        query_influx_database(["Coal", "Natural Gas", "Nuclear", "Wind", "Hydro", "Solar", "Storage", "Others", "Total_MW"], "mean", first_date.strftime('%Y-%m-%dT%H:%M:%SZ'), end_iso, freq_t), 
     )
 
     # 7) Highlight the active button
@@ -319,4 +343,12 @@ def update_plot(btn_1D, btn_1W, btn_1M, btn_3M, btn_YTD, btn_1Y, btn_ALL, stored
     styles = [ active if btn==button_id else default
                for btn in valid ]
 
-    return fig_avail, fig_through, fig_rte, fig_resting_soc, fig_revenue_stream, fig_fuel_mix, stored_first_last_date, *styles
+    # 8) Create Report
+
+    report_title = f"{proj_name}, {proj_power:,.0f}MW / {proj_energy:,.0f}MWh Analytics Report"
+    report_sub_title = "From " + str(pd.to_datetime(start_iso).date()) + " to " +str(pd.to_datetime(end_iso).date())
+    pdf_file = '/download/{}'.format(create_report(proj_details, report_title, report_sub_title, project_ga, project_sat))
+
+
+    
+    return fig_avail, fig_through, fig_rte, fig_resting_soc, fig_revenue_stream, fig_fuel_mix, stored_first_last_date, pdf_file, *styles

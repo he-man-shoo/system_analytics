@@ -94,6 +94,9 @@ def generate_soc_plot(df):
             x=0.5
         )
     )
+
+    fig.write_image("soc_plot.png", height = 650, width=1400)
+
     return fig
 
 def generate_avail_plot(df):
@@ -142,6 +145,8 @@ def generate_avail_plot(df):
                 x=0.5  # Center horizontally
             )                      
     )
+
+    fig.write_image("avail_plot.png", height = 650, width=1400)
 
     return fig
 
@@ -204,7 +209,9 @@ def temp_aux_plot(df):
                 x=0.5  # Center horizontally
             )                      
     )
-
+    
+    fig.write_image("temp_aux.png", height = 650, width=1400)
+    
     return fig
 
 def generate_rte_plot(start_time, end_time):
@@ -274,6 +281,8 @@ def generate_rte_plot(start_time, end_time):
         ),      
     )
 
+    fig.write_image("rte.png", height = 650, width=1400)
+
     return fig
 
 def generate_throughput_plot(df, proj_energy, num_cyc):
@@ -332,6 +341,9 @@ def generate_throughput_plot(df, proj_energy, num_cyc):
             x=0.5  # Center horizontally
         )
     )
+
+    fig.write_image("throughput.png", height = 650, width=1400)
+
     return fig
 
 
@@ -391,34 +403,60 @@ def generate_revenue_plot(df):
         )
     )
 
+    fig.write_image("revenue.png", height = 650, width=1400)
+
     return fig
 
-def generate_fuel_mix_plot(df):
-    
-    # Convert time
+def generate_fuel_mix_pie(df):
+
+    # Ensure datetime
     df['time'] = pd.to_datetime(df['_time'])
 
-    # Define your fuel columns in the order you want them stacked
+    # Define sources
     sources = ['Coal', 'Natural Gas', 'Nuclear', 'Wind', 'Hydro', 'Solar', 'Storage', 'Others']
 
-    # 2) Percent-stacked area
-    df_pct = df[['time'] + sources] \
-        .melt(id_vars='time', var_name='source', value_name='pct')
+    # Extract year-month for grouping
+    df['time'] = pd.to_datetime(df['_time']).dt.tz_localize(None)
+    df['year_month'] = df['time'].dt.to_period('M').astype(str)
 
-    fig = px.area(
-        df_pct,
-        x='time',
-        y='pct',
-        color='source',
-        groupnorm='percent',             # ← key for percentage stacking
-        title='Fuel share of total generation',
-        labels={'pct': '% of total generation', 'time': 'Date'}
+    # Monthly averages
+    monthly_avg = df.groupby('year_month')[sources].mean().reset_index()
+
+    # Create the base figure (first month)
+    first_month = monthly_avg.iloc[0]
+    fig = go.Figure(
+        data=[go.Pie(
+            labels=sources,
+            values=first_month[sources],
+        )],
+        layout=go.Layout(
+            title=f"Fuel Mix - {first_month['year_month']}",
+            updatemenus=[{
+                "type": "buttons",
+                "buttons": [
+                    {
+                        "label": "Play",
+                        "method": "animate",
+                        "args": [None, {"frame": {"duration": 800, "redraw": True}, "fromcurrent": True}]
+                    },
+                    {
+                        "label": "Pause",
+                        "method": "animate",
+                        "args": [[None], {"frame": {"duration": 0, "redraw": False}, "mode": "immediate"}]
+                    }
+                ]
+            }]
+        ),
+        frames=[
+            go.Frame(
+                data=[go.Pie(labels=sources, values=row[sources])],
+                name=row['year_month'],
+                layout=go.Layout(title=f"Fuel Mix - {row['year_month']}")
+            )
+            for _, row in monthly_avg.iterrows()
+        ]
     )
-    fig.update_yaxes(ticksuffix='%', rangemode='tozero')
-    fig.update_layout(
-        plot_bgcolor='rgb(255, 255, 255)',  # White background
-        paper_bgcolor='rgb(255, 255, 255)',  # White paper background
-    )
-             
+
+    fig.write_image("fuel_mix.png", height = 650, width=1400)
 
     return fig
