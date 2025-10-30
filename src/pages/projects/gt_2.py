@@ -297,7 +297,7 @@ def update_plot(btn_1D, btn_1W, btn_1M, btn_3M, btn_YTD, btn_1Y, btn_ALL, stored
 
     # 4) Map each button to its start‐offset & Flux windows
     cfg = {
-        "btn_1D":  {"start": last_date - pd.Timedelta(days=1),    "freqs":("5m","1h")},
+        "btn_1D":  {"start": last_date - pd.Timedelta(days=1),    "freqs":("1h","1h")},
         "btn_1W":  {"start": last_date - pd.Timedelta(days=7),    "freqs":("1h","1d")},
         "btn_1M":  {"start": last_date - pd.offsets.MonthEnd(1),  "freqs":("1h","1w")},
         "btn_3M":  {"start": last_date - pd.offsets.MonthEnd(3),  "freqs":("1d","1mo")},
@@ -329,9 +329,12 @@ def update_plot(btn_1D, btn_1W, btn_1M, btn_3M, btn_YTD, btn_1Y, btn_ALL, stored
         query_influx_database(["avail soc %", "cycle marker"], "mean", start_iso, end_iso, freq_a), 
     )
 
-    fig_revenue_stream = generate_revenue_plot(
-        query_influx_database(["Revenue_Standby", "Revenue_Charging", "Revenue_Discharging"], "sum", start_iso, end_iso, freq_t), 
-    )
+    # fig_revenue_stream = generate_revenue_plot(
+    #     query_influx_database(["Revenue_Standby", "Revenue_Charging", "Revenue_Discharging"], "sum", start_iso, end_iso, freq_t), 
+    # )
+
+    fig_revenue_stream = go.Figure().update_layout(title=f"Development in Progress - Revenue Generated $$")
+
 
     fig_fuel_mix = generate_fuel_mix_pie(
         query_influx_database(["Coal", "Natural Gas", "Nuclear", "Wind", "Hydro", "Solar", "Storage", "Others", "Total_MW"], "mean", first_date.strftime('%Y-%m-%dT%H:%M:%SZ'), end_iso, freq_t), 
