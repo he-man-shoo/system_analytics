@@ -201,7 +201,7 @@ def create_report(proj_details, report_title, report_sub_title, project_ga, proj
     # Build the Image flowables
     paths = [
         'avail_plot.png', 'throughput.png', 'rte.png',
-        'soc_plot.png', 'revenue.png', 'fuel_mix.png'
+        'soc_plot.png', 'fuel_mix.png'
     ]
 
     # Target size per image (fit box); use _restrictSize to preserve aspect ratio
